@@ -1,8 +1,8 @@
-# Regression tests for reusable N2Plain reconstruction storage.
+# Regression tests for reusable pp N2Plain and electron-positron storage.
 
 include("common.jl")
 
-function test_n2plain_clustersequence_equality(actual, expected)
+function test_plain_clustersequence_equality(actual, expected)
     @test actual.algorithm == expected.algorithm
     @test actual.power == expected.power
     @test actual.R == expected.R
@@ -32,13 +32,13 @@ function run_pp_n2plain_workspace!(workspace,
     end
 end
 
-function run_ee_n2plain_workspace!(workspace,
-                                   event;
-                                   p = nothing,
-                                   R = 4.0,
-                                   γ = nothing,
-                                   preprocess = nothing,
-                                   recombine = addjets_escheme)
+function run_ee_plain_workspace!(workspace,
+                                 event;
+                                 p = nothing,
+                                 R = 4.0,
+                                 γ = nothing,
+                                 preprocess = nothing,
+                                 recombine = addjets_escheme)
     return with_ee_reconstruction(workspace,
                                   event;
                                   p = p,
@@ -84,8 +84,8 @@ function ee_scratch_vectors(workspace)
             scratch.E2p)
 end
 
-@testset "Reusable N2Plain reconstruction" begin
-    @test :release_n2plain_workspace_capacity! ∉ names(JetReconstruction)
+@testset "Reusable plain reconstruction" begin
+    @test :release_plain_workspace_capacity! ∉ names(JetReconstruction)
 
     pp_events = read_final_state_particles(events_file_pp, PseudoJet)
     ee_events = read_final_state_particles(events_file_ee, EEJet)
@@ -105,7 +105,7 @@ end
                  (large_pp, JetAlgorithm.GenKt, 1.5, 0.4))
 
         for (event, algorithm, power, radius) in cases
-            workspace = N2PlainWorkspace(algorithm)
+            workspace = PlainWorkspace(algorithm)
             expected = plain_jet_reconstruct(event;
                                              algorithm = algorithm,
                                              p = power,
@@ -120,7 +120,7 @@ end
                                         preprocess = nothing) do actual
                 @test actual.jets === workspace.jets
                 @test actual.history === workspace.history
-                test_n2plain_clustersequence_equality(actual, expected)
+                test_plain_clustersequence_equality(actual, expected)
 
                 @test inclusive_jets(actual; ptmin = 5.0) == expected_inclusive
             end
@@ -136,7 +136,7 @@ end
                  (large_ee, JetAlgorithm.Valencia, 1.2, 0.8, 1.2))
 
         for (event, algorithm, power, radius, gamma) in cases
-            workspace = N2PlainWorkspace(algorithm)
+            workspace = PlainWorkspace(algorithm)
             expected = ee_genkt_algorithm(event;
                                           algorithm = algorithm,
                                           p = power,
@@ -153,7 +153,7 @@ end
                                    preprocess = nothing) do actual
                 @test actual.jets === workspace.jets
                 @test actual.history === workspace.history
-                test_n2plain_clustersequence_equality(actual, expected)
+                test_plain_clustersequence_equality(actual, expected)
 
                 @test inclusive_jets(actual; ptmin = 5.0) == expected_inclusive
             end
@@ -161,7 +161,7 @@ end
     end
 
     @testset "Preprocessing and recombination compatibility" begin
-        workspace = N2PlainWorkspace(JetAlgorithm.AntiKt)
+        workspace = PlainWorkspace(JetAlgorithm.AntiKt)
         configurations = ((preprocess_escheme, addjets_escheme),
                           (preprocess_ptscheme, addjets_ptscheme),
                           (preprocess_pt2scheme, addjets_pt2scheme))
@@ -178,7 +178,7 @@ end
                                         R = 0.4,
                                         preprocess = preprocess,
                                         recombine = recombine) do actual
-                test_n2plain_clustersequence_equality(actual, expected)
+                test_plain_clustersequence_equality(actual, expected)
             end
         end
 
@@ -187,22 +187,22 @@ end
                                             algorithm = JetAlgorithm.AntiKt)
 
         with_n2plain_reconstruction(workspace, pp_lorentz_event) do actual
-            test_n2plain_clustersequence_equality(actual, pp_expected)
+            test_plain_clustersequence_equality(actual, pp_expected)
         end
 
         lorentz_event = lorentzvector.(small_ee)
-        ee_workspace = N2PlainWorkspace(JetAlgorithm.Durham)
+        ee_workspace = PlainWorkspace(JetAlgorithm.Durham)
         expected = ee_genkt_algorithm(lorentz_event;
                                       algorithm = JetAlgorithm.Durham)
 
         with_ee_reconstruction(ee_workspace, lorentz_event) do actual
-            test_n2plain_clustersequence_equality(actual, expected)
+            test_plain_clustersequence_equality(actual, expected)
         end
     end
 
     @testset "Borrowed full ClusterSequence queries" begin
         event = first(pp_events)
-        workspace = N2PlainWorkspace(JetAlgorithm.Kt)
+        workspace = PlainWorkspace(JetAlgorithm.Kt)
         expected = plain_jet_reconstruct(event;
                                          algorithm = JetAlgorithm.Kt,
                                          R = 1.0,
@@ -226,16 +226,16 @@ end
     end
 
     @testset "Workspace family validation" begin
-        pp_workspace = N2PlainWorkspace(JetAlgorithm.AntiKt)
-        ee_workspace = N2PlainWorkspace(JetAlgorithm.Durham)
+        pp_workspace = PlainWorkspace(JetAlgorithm.AntiKt)
+        ee_workspace = PlainWorkspace(JetAlgorithm.Durham)
 
         @test_throws MethodError run_pp_n2plain_workspace!(ee_workspace, small_pp)
-        @test_throws MethodError run_ee_n2plain_workspace!(pp_workspace, small_ee)
-        @test_throws MethodError N2PlainWorkspace(PseudoJet)
+        @test_throws MethodError run_ee_plain_workspace!(pp_workspace, small_ee)
+        @test_throws MethodError PlainWorkspace(PseudoJet)
     end
 
     @testset "Exact scratch lengths, reuse, and release" begin
-        pp_workspace = N2PlainWorkspace(JetAlgorithm.AntiKt)
+        pp_workspace = PlainWorkspace(JetAlgorithm.AntiKt)
 
         run_pp_n2plain_workspace!(pp_workspace, large_pp)
         retained_pp_jets = pp_workspace.jets
@@ -252,7 +252,7 @@ end
         @test all(length(array) == length(small_pp)
                   for array in pp_scratch_vectors(pp_workspace))
 
-        JetReconstruction.release_n2plain_workspace_capacity!(pp_workspace)
+        JetReconstruction.release_plain_workspace_capacity!(pp_workspace)
         @test pp_workspace.jets !== retained_pp_jets
         @test pp_workspace.history !== retained_pp_history
         @test all(current !== retained
@@ -262,16 +262,16 @@ end
         @test isempty(pp_workspace.history)
         @test all(isempty, pp_scratch_vectors(pp_workspace))
 
-        ee_workspace = N2PlainWorkspace(JetAlgorithm.Durham)
+        ee_workspace = PlainWorkspace(JetAlgorithm.Durham)
 
-        run_ee_n2plain_workspace!(ee_workspace, large_ee)
+        run_ee_plain_workspace!(ee_workspace, large_ee)
         retained_ee_jets = ee_workspace.jets
         retained_ee_history = ee_workspace.history
         retained_ee_scratch_object = ee_workspace.scratch
         retained_ee_scratch = ee_scratch_vectors(ee_workspace)
         @test all(length(array) == length(large_ee) for array in retained_ee_scratch)
 
-        run_ee_n2plain_workspace!(ee_workspace, small_ee)
+        run_ee_plain_workspace!(ee_workspace, small_ee)
         @test ee_workspace.jets === retained_ee_jets
         @test ee_workspace.history === retained_ee_history
         @test ee_workspace.scratch === retained_ee_scratch_object
@@ -281,7 +281,7 @@ end
         @test all(length(array) == length(small_ee)
                   for array in ee_scratch_vectors(ee_workspace))
 
-        JetReconstruction.release_n2plain_workspace_capacity!(ee_workspace)
+        JetReconstruction.release_plain_workspace_capacity!(ee_workspace)
         @test ee_workspace.jets !== retained_ee_jets
         @test ee_workspace.history !== retained_ee_history
         @test ee_workspace.scratch !== retained_ee_scratch_object
@@ -297,7 +297,7 @@ end
                                               preprocess = nothing)
         owning_jets = copy(owning_result.jets)
         owning_history = copy(owning_result.history)
-        workspace = N2PlainWorkspace(JetAlgorithm.AntiKt)
+        workspace = PlainWorkspace(JetAlgorithm.AntiKt)
         borrowed_result = Ref{Any}()
         borrowed_output = Ref{Any}()
 
@@ -319,7 +319,7 @@ end
     end
 
     @testset "Workspace allocation regression" begin
-        pp_workspace = N2PlainWorkspace(JetAlgorithm.AntiKt)
+        pp_workspace = PlainWorkspace(JetAlgorithm.AntiKt)
 
         run_pp_n2plain_reconstruction_only!(pp_workspace, large_pp)
         plain_jet_reconstruct(large_pp;
@@ -349,7 +349,7 @@ end
 
         @sync for _ in 1:worker_count
             Threads.@spawn begin
-                workspace = N2PlainWorkspace(JetAlgorithm.AntiKt)
+                workspace = PlainWorkspace(JetAlgorithm.AntiKt)
 
                 while true
                     event_index = Threads.atomic_add!(next_index, 1)

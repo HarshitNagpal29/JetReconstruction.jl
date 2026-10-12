@@ -312,24 +312,17 @@ function _plain_jet_reconstruct!(particles::AbstractVector{PseudoJet};
     # Optimised compact arrays for determining the next merge step
     # We make sure these arrays are type stable - have seen issues where, depending on the values
     # returned by the methods, they can become unstable and performance degrades
-    local kt2_array::Vector{Float64}
-    local phi_array::Vector{Float64}
-    local rapidity_array::Vector{Float64}
-    local nn::Vector{Int}
-    local nndist::Vector{Float64}
-    local nndij::Vector{Float64}
-    local clusterseq_index::Vector{Int}
 
     if isnothing(scratch)
-        kt2_array = pt2.(particles) .^ p
-        phi_array = phi.(particles)
-        rapidity_array = rapidity.(particles)
-        nn = Vector(1:N) # nearest neighbours
-        nndist = fill(float(R2), N) # geometric distances to the nearest neighbour
-        nndij = zeros(N) # dij metric distance
+        kt2_array::Vector{Float64} = pt2.(particles) .^ p
+        phi_array::Vector{Float64} = phi.(particles)
+        rapidity_array::Vector{Float64} = rapidity.(particles)
+        nn::Vector{Int} = Vector(1:N) # nearest neighbours
+        nndist::Vector{Float64} = fill(float(R2), N) # geometric distances to the nearest neighbour
+        nndij::Vector{Float64} = zeros(N) # dij metric distance
 
         # Maps index from the compact array to the clusterseq jet vector
-        clusterseq_index = collect(1:N)
+        clusterseq_index::Vector{Int} = collect(1:N)
     else
         ensure_length!(scratch, N)
         kt2_array = scratch.kt2
@@ -446,20 +439,20 @@ Reconstruct a pp event using storage owned by `workspace`.
 This is the pp implementation behind [`with_n2plain_reconstruction`](@ref).
 The returned sequence borrows `workspace.jets` and `workspace.history`.
 """
-function _n2plain_reconstruct_with_workspace!(workspace::N2PlainWorkspace{A, PseudoJet,
-                                                                          PPPlainScratch},
-                                              particles::AbstractVector;
-                                              p::Union{Real, Nothing} = nothing,
-                                              R = nothing,
-                                              recombine = addjets_escheme,
-                                              preprocess = preprocess_escheme) where {A}
+function _reconstruct_with_workspace!(workspace::PlainWorkspace{A, PseudoJet,
+                                                                PPPlainScratch},
+                                      particles::AbstractVector;
+                                      p::Union{Real, Nothing} = nothing,
+                                      R = nothing,
+                                      recombine = addjets_escheme,
+                                      preprocess = preprocess_escheme) where {A}
     resolved_power = get_algorithm_power(p = p, algorithm = A)
     resolved_power = round(resolved_power) == resolved_power ? Int(resolved_power) :
                      resolved_power
     resolved_R = something(R, 1.0)
-    jets = prepare_n2plain_recombination_jets!(workspace,
-                                               particles;
-                                               preprocess = preprocess)
+    jets = prepare_plain_recombination_jets!(workspace,
+                                             particles;
+                                             preprocess = preprocess)
 
     return _plain_jet_reconstruct!(jets;
                                    algorithm = A,
@@ -468,4 +461,45 @@ function _n2plain_reconstruct_with_workspace!(workspace::N2PlainWorkspace{A, Pse
                                    recombine = recombine,
                                    scratch = workspace.scratch,
                                    history_buffer = workspace.history)
+end
+
+"""
+    with_n2plain_reconstruction(
+        f,
+        workspace,
+        particles;
+        p = nothing,
+        R = nothing,
+        recombine = addjets_escheme,
+        preprocess = preprocess_escheme,
+    )
+
+Run pp N2Plain reconstruction with workspace-owned storage and call `f` with
+the borrowed [`ClusterSequence`](@ref). Construct the workspace with the pp
+algorithm to use, for example `PlainWorkspace(JetAlgorithm.AntiKt)`.
+
+When `R` is omitted, reconstruction uses `R = 1.0`, matching
+[`plain_jet_reconstruct`](@ref).
+
+The sequence, its jets, and its history are valid only until the workspace's
+next reconstruction. Copy values that must escape the callback. Each
+concurrently executing worker must own a distinct workspace, and the caller
+must prevent concurrent or reentrant use of the same workspace.
+"""
+function with_n2plain_reconstruction(f::F,
+                                     workspace::PlainWorkspace{A, PseudoJet,
+                                                               PPPlainScratch},
+                                     particles::AbstractVector;
+                                     p::Union{Real, Nothing} = nothing,
+                                     R = nothing,
+                                     recombine = addjets_escheme,
+                                     preprocess = preprocess_escheme) where {F, A}
+    clusterseq = _reconstruct_with_workspace!(workspace,
+                                              particles;
+                                              p = p,
+                                              R = R,
+                                              recombine = recombine,
+                                              preprocess = preprocess)
+
+    return f(clusterseq)
 end

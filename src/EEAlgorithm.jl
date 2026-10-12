@@ -581,14 +581,14 @@ This is the electron-positron implementation behind
 [`with_ee_reconstruction`](@ref). The returned sequence borrows
 `workspace.jets` and `workspace.history`.
 """
-function _n2plain_reconstruct_with_workspace!(workspace::N2PlainWorkspace{A, EEJet},
-                                              particles::AbstractVector;
-                                              p::Union{Real, Nothing} = nothing,
-                                              R = nothing,
-                                              recombine = addjets_escheme,
-                                              preprocess = preprocess_escheme,
-                                              γ::Union{Real, Nothing} = nothing,
-                                              β::Union{Real, Nothing} = nothing) where {A}
+function _reconstruct_with_workspace!(workspace::PlainWorkspace{A, EEJet},
+                                      particles::AbstractVector;
+                                      p::Union{Real, Nothing} = nothing,
+                                      R = nothing,
+                                      recombine = addjets_escheme,
+                                      preprocess = preprocess_escheme,
+                                      γ::Union{Real, Nothing} = nothing,
+                                      β::Union{Real, Nothing} = nothing) where {A}
     if A === JetAlgorithm.Valencia && !isnothing(β)
         p = β
     end
@@ -601,9 +601,9 @@ function _n2plain_reconstruct_with_workspace!(workspace::N2PlainWorkspace{A, EEJ
 
     resolved_R = A === JetAlgorithm.Durham ? 4.0 : something(R, 4.0)
     resolved_gamma = something(γ, 1.0)
-    jets = prepare_n2plain_recombination_jets!(workspace,
-                                               particles;
-                                               preprocess = preprocess)
+    jets = prepare_plain_recombination_jets!(workspace,
+                                             particles;
+                                             preprocess = preprocess)
 
     return _ee_genkt_algorithm!(jets;
                                 algorithm = A,
@@ -614,4 +614,50 @@ function _n2plain_reconstruct_with_workspace!(workspace::N2PlainWorkspace{A, EEJ
                                 recombine = recombine,
                                 scratch = workspace.scratch,
                                 history_buffer = workspace.history)
+end
+
+"""
+    with_ee_reconstruction(
+        f,
+        workspace,
+        particles;
+        p = nothing,
+        R = nothing,
+        recombine = addjets_escheme,
+        preprocess = preprocess_escheme,
+        γ = nothing,
+        β = nothing,
+    )
+
+Run electron-positron reconstruction with workspace-owned storage and call
+`f` with the borrowed [`ClusterSequence`](@ref). Construct the workspace
+with the e⁺e⁻ algorithm to use, for example
+`PlainWorkspace(JetAlgorithm.Durham)`. Input particles may have any
+supported four-momentum type.
+
+When `R` is omitted, reconstruction uses `R = 4.0`, matching
+[`ee_genkt_algorithm`](@ref). Durham always uses its conventional nominal
+value `R = 4.0`. The sequence, its jets, and its history are overwritten by
+the next reconstruction using this workspace. Copy values that must outlive
+that operation, and do not use one workspace concurrently or reentrantly.
+"""
+function with_ee_reconstruction(f::F,
+                                workspace::PlainWorkspace{A, EEJet},
+                                particles::AbstractVector;
+                                p::Union{Real, Nothing} = nothing,
+                                R = nothing,
+                                recombine = addjets_escheme,
+                                preprocess = preprocess_escheme,
+                                γ::Union{Real, Nothing} = nothing,
+                                β::Union{Real, Nothing} = nothing) where {F, A}
+    clusterseq = _reconstruct_with_workspace!(workspace,
+                                              particles;
+                                              p = p,
+                                              R = R,
+                                              recombine = recombine,
+                                              preprocess = preprocess,
+                                              γ = γ,
+                                              β = β)
+
+    return f(clusterseq)
 end

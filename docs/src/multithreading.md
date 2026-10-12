@@ -9,13 +9,13 @@ small, and the returned result can be retained freely.
 ## High-throughput multi-threaded reconstruction
 
 High-throughput multi-threaded applications that reconstruct many independent
-events in parallel can reuse N2Tiled storage with an `N2TiledWorkspace`. This
+events in parallel can reuse N2Tiled storage with a `TiledWorkspace`. This
 avoids most per-event temporary allocations, which greatly improves performance.
 The cost of those allocations becomes more severe in multithreaded
 applications.
 
 ```julia
-workspace = N2TiledWorkspace()
+workspace = TiledWorkspace()
 
 for event in events
     with_n2tiled_reconstruction(
@@ -40,10 +40,10 @@ workspace*. Copy any data that must outlive the callback or use an ordinary
 owning interface instead.
 
 For pp events where the N2Plain strategy is appropriate, the same workspace
-pattern is available through `N2PlainWorkspace`:
+pattern is available through `PlainWorkspace`:
 
 ```julia
-workspace = N2PlainWorkspace(JetAlgorithm.AntiKt)
+workspace = PlainWorkspace(JetAlgorithm.AntiKt)
 
 for event in events
     with_n2plain_reconstruction(
@@ -62,7 +62,7 @@ For e⁺e⁻ algorithms such as Durham, EEKt, and Valencia, use
 `with_ee_reconstruction`:
 
 ```julia
-workspace = N2PlainWorkspace(JetAlgorithm.Durham)
+workspace = PlainWorkspace(JetAlgorithm.Durham)
 
 for event in events
     with_ee_reconstruction(workspace, event) do clusterseq
