@@ -2,11 +2,13 @@ using Documenter
 using CairoMakie
 using EDM4hep
 using JetReconstruction
+using UnicodePlots
 
 push!(LOAD_PATH, "../ext/")
 
 include(joinpath(@__DIR__, "..", "ext", "JetVisualisation.jl"))
 include(joinpath(@__DIR__, "..", "ext", "EDM4hepJets.jl"))
+include(joinpath(@__DIR__, "..", "ext", "JetBenchmarkPlots.jl"))
 
 makedocs(sitename = "JetReconstruction.jl",
          clean = false,
@@ -15,9 +17,11 @@ makedocs(sitename = "JetReconstruction.jl",
              "Examples" => "examples.md",
              "Particle Inputs" => "particles.md",
              "Reconstruction Strategies" => "strategy.md",
+             "Multithreaded Reconstruction" => "multithreading.md",
              "Substructure" => "substructure.md",
              "Lund Jet Plane" => "lundplane.md",
              "Jet Helpers" => "helpers.md",
+             "Active Jet Areas" => "jetareas.md",
              "EDM4hep" => "EDM4hep.md",
              "Recombination Schemes" => "recombination.md",
              "SoftKiller" => "softkiller.md",

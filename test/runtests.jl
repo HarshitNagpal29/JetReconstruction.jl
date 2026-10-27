@@ -19,6 +19,7 @@ function main()
 
     # New test structure, factorised tests for pp and e+e-
     include("test-pp-reconstruction.jl")
+    include("test-n2tiled-kernel.jl")
     include("test-ee-reconstruction.jl")
 
     # Valencia algorithm tests
@@ -56,6 +57,9 @@ function main()
 
     # Jet areas tests
     include("test-jet-areas.jl")
+
+    # C-interface tests
+    include("test-c-interface.jl")
 end
 
 logger = ConsoleLogger(stdout, Logging.Warn)

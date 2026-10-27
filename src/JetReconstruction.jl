@@ -77,7 +77,7 @@ export plain_jet_reconstruct
 include("TiledAlgoUtils.jl")
 # Algorithmic part, tiled reconstruction strategy with linked list jet objects
 include("TiledAlgoLL.jl")
-export tiled_jet_reconstruct
+export N2TiledWorkspace, tiled_jet_reconstruct, with_n2tiled_reconstruction
 
 ## E+E- algorithms
 include("EEAlgorithm.jl")
@@ -101,6 +101,10 @@ export generate_lund_emissions
 # Simple HepMC3 reader
 include("HepMC3.jl")
 
+# Benchmarking and statistics for timing results
+include("BenchmarkStatistics.jl")
+export summarise_trial_times, filter_outliers_iqr, pprint_trial_stats, print_statistics
+
 # utility functions, useful for different primary scripts
 include("Utils.jl")
 export read_final_state_particles, final_jets
@@ -116,8 +120,15 @@ function jetsplot() end
 function animatereco() end
 export jetsplot, animatereco
 
+# Benchmark plotting is an extension, see ext/JetBenchmarkPlots.jl
+function plot_trial_times end
+export plot_trial_times
+
 # JSON results
 include("JSONresults.jl")
 export FinalJet, FinalJets
+
+# C bindings sub-module
+include("C_JetReconstruction/C_JetReconstruction.jl")
 
 end
