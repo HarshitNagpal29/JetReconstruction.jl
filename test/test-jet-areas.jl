@@ -1,7 +1,6 @@
 include("common.jl")
 
 using Random
-using JetReconstruction: pt, rapidity, px, py, pz, energy
 
 @testset "FastJet explicit ghost reference" begin
     reference = JSON.parse(read(JetReconstruction.open_with_stream(joinpath(@__DIR__,
@@ -21,13 +20,23 @@ using JetReconstruction: pt, rapidity, px, py, pz, energy
         data = JetReconstruction._postprocess_area(cs, length(reference["particles"]),
                                                    reference["ghost_area"]; recombine)
         csa = ClusterSequenceArea(cs, data)
-        jets = sort(inclusive_jets(csa; ptmin = 1); by = pt, rev = true)
+        jets = sort(inclusive_jets(csa; ptmin = 1); by = JetReconstruction.pt, rev = true)
         @test length(jets) == length(result["jets"])
         for (jet, expected) in zip(jets, result["jets"])
-            @test [px(jet), py(jet), pz(jet), energy(jet)] ≈ expected["momentum"]
+            @test [
+                JetReconstruction.px(jet),
+                JetReconstruction.py(jet),
+                JetReconstruction.pz(jet),
+                JetReconstruction.energy(jet)
+            ] ≈ expected["momentum"]
             @test area(jet, csa) ≈ expected["area"]
             vector = area_4vector(jet, csa)
-            @test [px(vector), py(vector), pz(vector), energy(vector)] ≈
+            @test [
+                JetReconstruction.px(vector),
+                JetReconstruction.py(vector),
+                JetReconstruction.pz(vector),
+                JetReconstruction.energy(vector)
+            ] ≈
                   expected["area_4vector"]
         end
     end
@@ -45,7 +54,8 @@ end
             results = map((RecoStrategy.N2Plain, RecoStrategy.N2Tiled, RecoStrategy.Best)) do strategy
                 csa = jet_reconstruct_area(particles; algorithm, p = 1.5, R = 0.4,
                                            area_spec = spec, strategy)
-                jets = sort(inclusive_jets(csa; ptmin = 1.0); by = pt, rev = true)
+                jets = sort(inclusive_jets(csa; ptmin = 1.0); by = JetReconstruction.pt,
+                            rev = true)
                 @test jets isa Vector{PseudoJet}
                 @test length(jets) == 2
                 @test all(!is_pure_ghost(jet, csa) for jet in jets)
@@ -78,16 +88,20 @@ end
         ghosts, ghost_area = JetReconstruction._make_area_ghosts(spec, MersenneTwister(7))
         @test length(ghosts) == grid.n_ghosts
         @test ghost_area == grid.actual_ghost_area
-        @test all(-spec.ghost_maxrap <= rapidity(ghost) <= spec.ghost_maxrap
+        @test all(-spec.ghost_maxrap <= JetReconstruction.rapidity(ghost) <=
+                  spec.ghost_maxrap
                   for ghost in ghosts)
         @test all(0 <= JetReconstruction.phi(ghost) < 2π for ghost in ghosts)
-        @test all(isapprox(energy(ghost), pt(ghost) * cosh(rapidity(ghost)))
+        @test all(isapprox(JetReconstruction.energy(ghost),
+                           JetReconstruction.pt(ghost) *
+                           cosh(JetReconstruction.rapidity(ghost)))
                   for ghost in ghosts)
         regular = GhostedAreaSpec(ghost_maxrap = 1.0, ghost_area = 0.02,
                                   grid_scatter = 0, kt_scatter = 0)
         regular_ghosts, _ = JetReconstruction._make_area_ghosts(regular, MersenneTwister(1))
-        @test all(pt(ghost) ≈ regular.mean_ghost_pt for ghost in regular_ghosts)
-        @test rapidity(first(regular_ghosts)) ≈ -1 + grid.drap / 2
+        @test all(JetReconstruction.pt(ghost) ≈ regular.mean_ghost_pt
+                  for ghost in regular_ghosts)
+        @test JetReconstruction.rapidity(first(regular_ghosts)) ≈ -1 + grid.drap / 2
         @test JetReconstruction.phi(first(regular_ghosts)) ≈ grid.dphi / 2
         first_run = jet_reconstruct_area(particles; algorithm = JetAlgorithm.AntiKt,
                                          area_spec = spec)
@@ -115,12 +129,19 @@ end
             ghost_indexes = filter(index -> index > length(particles), indexes)
             @test is_pure_ghost(jet, csa) == (length(ghost_indexes) == length(indexes))
             @test area(jet, csa) ≈ length(ghost_indexes) * data.ghost_area
-            components = map((px, py, pz, energy)) do component
-                sum(component(cs.jets[index]) * data.ghost_area / pt(cs.jets[index])
+            components = map((JetReconstruction.px, JetReconstruction.py,
+                              JetReconstruction.pz, JetReconstruction.energy)) do component
+                sum(component(cs.jets[index]) * data.ghost_area /
+                    JetReconstruction.pt(cs.jets[index])
                     for index in ghost_indexes; init = 0.0)
             end
             vector = area_4vector(jet, csa)
-            @test [px(vector), py(vector), pz(vector), energy(vector)] ≈ collect(components)
+            @test [
+                JetReconstruction.px(vector),
+                JetReconstruction.py(vector),
+                JetReconstruction.pz(vector),
+                JetReconstruction.energy(vector)
+            ] ≈ collect(components)
         end
         ghost_only = jet_reconstruct_area(PseudoJet[]; algorithm = JetAlgorithm.Kt,
                                           area_spec = spec)
@@ -141,10 +162,15 @@ end
             jet = only(inclusive_jets(outside_csa; ptmin = 1))
             @test area(jet, outside_csa) == 0
             vector = area_4vector(jet, outside_csa)
-            @test [px(vector), py(vector), pz(vector), energy(vector)] == zeros(4)
+            @test [
+                JetReconstruction.px(vector),
+                JetReconstruction.py(vector),
+                JetReconstruction.pz(vector),
+                JetReconstruction.energy(vector)
+            ] == zeros(4)
             inside_csa = jet_reconstruct_area(particles; algorithm = JetAlgorithm.AntiKt,
                                               R = 0.4, area_spec = spec, recombine)
-            @test all(isfinite(energy(area_4vector(jet, inside_csa)))
+            @test all(isfinite(JetReconstruction.energy(area_4vector(jet, inside_csa)))
                       for jet in inclusive_jets(inside_csa))
         end
     end
@@ -157,14 +183,15 @@ end
         raw_jets = inclusive_jets(raw; ptmin = 1)
         converted_jets = inclusive_jets(converted; ptmin = 1)
         @test all(component.(raw_jets) ≈ component.(converted_jets)
-                  for component in (px, py, pz, energy))
+                  for component in (JetReconstruction.px, JetReconstruction.py,
+                                    JetReconstruction.pz, JetReconstruction.energy))
         @test area.(raw_jets, Ref(raw)) ≈ area.(converted_jets, Ref(converted))
         for output_type in (LorentzVector, LorentzVectorCyl,
                             LorentzVector{Float32}, LorentzVectorCyl{Float32})
             jets = inclusive_jets(raw, output_type; ptmin = 1)
             @test eltype(jets) == output_type
             @test length(jets) == 2
-            @test all(pt(jet) > 1 for jet in jets)
+            @test all(JetReconstruction.pt(jet) > 1 for jet in jets)
             @test eltype(inclusive_jets(raw, output_type; ptmin = 1e10)) == output_type
         end
         @test_throws ArgumentError inclusive_jets(raw, Int)
